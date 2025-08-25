@@ -1,0 +1,68 @@
+# 250825 진행상황
+## 클라이언트
+- 서버와의 네트워크 연결을 위해 java.net.socket 사용
+- 채팅 출력용 output UI 컴포넌트 TextArea : 서버와 다른 유저의 메시지 표시하는 창
+- 채팅 입력용 input UI 컴포넌트 TextField : 메시지 입력창
+- 메시지 전송용 sendBtn send버튼
+- 서버와의 연결을 위한 TCP 소켓
+- 서버로부터 InfoDTO를 읽어오는 입력 스트림 ObjectInputStream 사용
+- 서버로 InfoDTO를 보내는 출력 스트림 ObjectOutputStream 사용
+- 클라이언트의 닉네임을 저장할 nickName 속성 생성(서버에 JOIN, EXIT, SEND 할때 전부 필요)
+- 서버 포트는 임시 지정
+- JavaFX 진입점으로, start메서드로 Stage를 받아 UI 구성 및 가시화
+    - output : 서버로부터 받아온 메시지를 표시하는 UI 공간으로, 편집하지 못하도록 setEditable 설정
+    - input : 서버로 보낼 메시지를 입력하는 UI 공간으로, 옆에 "보내기" 버튼을 만들어 클릭/Enter로 전송 가능
+    - sendBtn : 보내기 버튼 객체
+    - input과 sendBtn을 하단에 HBox로(수평바) 로 배치
+    - setHgrow(input, Priority.ALWAYS)로 입력창을 가로로 늘려 버튼을 오른쪽 구석에 고정시킴
+    - output과 하단HBox를 Border 메인 레이아웃으로 중앙에 output, 하단에 HBox로 배치
+    - service 메서드를 통해 서버IP/닉네임 입력받고 소켓/스트림 초기화+수신 스레드 시작
+    - input의 enter와 sendbtn의 클릭으로 메시지를 보낼 수 있게 setOnAction으로 람다 핸들러 설정
+    - 창 종료 시 이벤트를 setOnCloseRequest로 처리
+        - 전송 dto를 생성하여 거기에 닉네임 설정, 커맨드 enum EXIT 설정
+        - 서버로의 outputstream인 writer를 이용해 writeObject(dto)로 서버로 dto 객체 전송
+        - flush를 통해 버퍼 비움
+        - 서버로부터의 inputstream인 reader 닫고, 서버로 입력하는 outputstream인 writer 닫고, 소켓 닫아서 마무리
+- service() 메소드
+    - IP 입력창 및 기본값 설정
+    - IP 입력 받은 뒤, 닉네임도 다른 모달 창으로 똑같이 설정
+    - 입력받은 서버IP와 PORT번호로 Socket 생성자를 통해 TCP 연결 생성
+    - 서버로 메시지 객체를 보낼 writer outputstream과 서버로부터 메시지 객체를 받을 reader inputstream 생성
+    - 새 소켓이 생성되었으니, 전송 DTO 객체를 만들어 JOIN 메시지를 설정, 닉네임과 함께 서버로 전송함. 추후 broadcast 메서드를 통해 서버가 JOIN을 받으면, 입장했음을 모든 클라이언트에 광고하도록 함.
+    - 새 스레드를 만들어, 클라이언트를 해당 스레드에서 실행되도록 설정
+- sendMessage() 메소드
+    - input 창으로 입력된 메시지를 getText()를 통해 String msg에 따로 저장
+    - 마찬가지로 전송 DTO를 생성해서, SEND 커맨드, msg, 닉네임을 저장하고 서버로 전송(write)
+    - 서버로 전송 후 input 객체를 clear를 통해 비움
+    - 만약 입력받은 데이터가 exit 이라면, SEND 대신 EXIT 커맨드를 보내고 클라이언트 자발 종료
+- run() 메소드
+    - 스레드를 runnable로 구현하기 때문에 run을 통한 지속적인 UI 반영 : 서버에서 전송받는 DTO를 계속 읽을 수 있음
+    - 서버로부터 받는 DTO reader 객체가 비어있지 않은 한, 실행되는 while 루프 : 수신 루프
+    - 만약 EXIT 커맨드를 받으면, Platform.runLater 람다식을 통해 종료안내 메시지 출력 후 수신 루프 종료
+    - SEND 커맨드를 받으면, 받아온 DTO 객체의 msg로부터 getMessage를 통해 본문을 추출한 뒤, 채팅 로그에 추가 후 줄바꿈
+
+## 채팅핸들러
+- 클라이언트를 개별 스레드로 독립 처리하기 위한 스레드 확장
+- 핸들러는 서버입장이므로 OutputStream writer로 서버->클라이언트 메시지
+- InputStream reader로 클라이언트에서 읽어옴
+- 클라이언트와 통신하기 위한 socket과 핸들러 형식의 list
+- 핸들러 생성자로 전달받은 소켓과 클라이언트 목록 리스트 저장
+- run()메서드를 통해 실행 스레드의 클라이언트 메시지를 계속 읽고 처리
+    - 데이터 전송 객체를 담을 dto
+    - 닉네임을 임시로 담을 nickName
+    - 지속 수신 루프로 네트워크에서 readObject()로 객체 수신해서 dto에 저장
+    - dto의 getNickName()으로 닉네임 저장
+    - 커맨드가 EXIT, SEND, JOIN일 때 각각 어떻게 처리하는지 지정
+    - EXIT
+        - 응답, 브로드캐스트용 sendDto 생성
+        - 나가려고 exit 메시지를 보낸 클라이언트에게 보낼 EXIT 커맨드 sendDto에 저장
+        - writeObject로 클라이언트로 전송 및 flush()로 버퍼 비우기
+        - 연결 해제를 위해 reader.close()로 입력 스트림 정리, writer.close()로 출력 스트림 닫기, socket.close()로 소켓 닫기
+        - 현재 핸들러를 list.remove(this)를 통해 목록에서 제거
+        - sendDto의 커맨드를 SEND로 설정, Message로 nickName님 퇴장하셨습니다를 저장한 뒤, broadcast(sendDto)를 통해 남아있는 클라이언트에게 퇴장공지 후 루프 탈출
+    - JOIN
+        - 마찬가지로 브로드캐스트용 sendDto 생성 후 커맨드 SEND 설정, 입장하셨습니다 메시지 설정 후 broadcast
+    - SEND
+        - 만약 dto의 getCommand가 SEND 라면, 커맨드 SEND 설정, setMessage에 nickname과 dto.getMessage()를 이용해 받아온 메시지를 닉네임과 함께 객체 저장 후 broadcast
+- broadCast(InfoDTO sendDto) 메서드
+    - list에서 ChatHandler 형식의 객체를 for-each로 받아와서 각 핸들러의 ObjectOutputStream에 sendDto를 전송 및 flush
