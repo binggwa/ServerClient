@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.StackPane?>
+
+<BorderPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.serverclient.GameController">
+
+    <!-- 상단 바: 검은 배경, 중앙은 Time(빨간 글자), 오른쪽은 Score(흰 글자) -->
+    <top>
+        <StackPane style="-fx-background-color: #000000;" prefHeight="44.0">
+            <padding>
+                <Insets top="8" right="12" bottom="8" left="12"/>
+            </padding>
+            <children>
+                <!-- 중앙 타이머 -->
+                <Label fx:id="timerLabel"
+                       text="Time: 60"
+                       style="-fx-text-fill: #ff4d4d; -fx-font-size: 18px; -fx-font-weight: bold;"/>
+
+                <!-- 오른쪽 스코어 -->
+                <Label fx:id="scoreLabel"
+                       text="Score: 0"
+                       style="-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;"
+                       StackPane.alignment="CENTER_RIGHT"/>
+            </children>
+        </StackPane>
+    </top>
+
+    <!-- 중앙 보드: 스크롤 지원 -->
+    <center>
+        <ScrollPane fitToWidth="true" fitToHeight="true">
+            <content>
+                <GridPane fx:id="boardGrid" hgap="1" vgap="1">
+                    <padding>
+                        <Insets topRightBottomLeft="8"/>
+                    </padding>
+                </GridPane>
+            </content>
+        </ScrollPane>
+    </center>
+
+</BorderPane>
